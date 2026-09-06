@@ -27,12 +27,6 @@ import java.util.zip.ZipOutputStream;
  * Giải nén ra là dán thẳng được vào /saves, không cần đổi tên tay — khớp
  * đúng hành vi nút "Make Backup" gốc của Minecraft.
  *
- * Nếu tên thư mục trong zip lệch khỏi tên world thật (ví dụ lỡ kèm timestamp),
- * người dùng phải tự đổi tên khi restore, dẫn tới LevelName bên trong
- * level.dat (tên world gốc, không đổi theo tên thư mục ngoài) lệch khỏi tên
- * thư mục thực tế trong /saves — gây lỗi getLevelName() không khớp thư mục
- * thật khi backup lại lần sau.
- *
  * Toàn bộ method ở đây được thiết kế để KHÔNG BAO GIỜ ném exception ra ngoài —
  * chỉ trả về true/false — vì đây là tính năng phụ chạy lúc server đang tắt,
  * không được phép làm crash quá trình thoát game bình thường.
@@ -62,11 +56,6 @@ public final class ZipUtils {
             Path backupDir = gameDir.resolve("backups");
             Files.createDirectories(backupDir);
 
-            // Tên FILE zip (có timestamp, để không đè lên bản cũ) và tên THƯ MỤC
-            // CHA bên trong zip (đúng bằng tên world, KHÔNG kèm timestamp) là 2
-            // giá trị tách biệt — đây chính là cách nút "Make Backup" gốc của
-            // game làm, để giải nén ra luôn đúng đặt tên thư mục world, dán
-            // thẳng vào /saves mà không cần đổi tên tay.
             String fileName = LocalDateTime.now().format(FILE_NAME_TIMESTAMP) + "_" + worldName;
             Path zipPath = backupDir.resolve(fileName + ".zip");
 
@@ -79,8 +68,6 @@ public final class ZipUtils {
             return zipPath.toFile();
 
         } catch (Exception e) {
-            // Bắt Exception rộng có chủ đích: tuyệt đối không để lỗi lọt ra ngoài
-            // làm ảnh hưởng luồng SERVER_STOPPING đang gọi hàm này.
             Backup.LOGGER.error("Backup world '{}' thất bại: {}", worldName, e.getMessage(), e);
             return null;
         }
@@ -89,21 +76,17 @@ public final class ZipUtils {
     private static void zipDirectory(Path worldDir, Path backupDir, Path zipPath, String worldFolderName)
             throws IOException {
         try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(zipPath.toFile()))) {
-            zos.setLevel(Deflater.DEFAULT_COMPRESSION); // thuật toán Deflate
+            zos.setLevel(Deflater.DEFAULT_COMPRESSION);
 
             try (Stream<Path> walk = Files.walk(worldDir)) {
                 List<Path> files = walk
                         .filter(Files::isRegularFile)
-                        // Bỏ qua chính thư mục backups/ để tránh zip đệ quy các bản zip cũ
                         .filter(path -> !path.startsWith(backupDir))
-                        // Bỏ qua session.lock — Minecraft dùng để khóa world, không cần backup
                         .filter(path -> !path.getFileName().toString().equals("session.lock"))
                         .toList();
 
                 for (Path file : files) {
                     String relativePath = worldDir.relativize(file).toString().replace('\\', '/');
-                    // Bọc trong 1 thư mục cha đúng bằng TÊN WORLD (không timestamp) —
-                    // giải nén ra là dán thẳng được vào /saves, không cần đổi tên tay.
                     String entryName = worldFolderName + "/" + relativePath;
                     zos.putNextEntry(new ZipEntry(entryName));
                     Files.copy(file, zos);
@@ -115,11 +98,9 @@ public final class ZipUtils {
 
     private static void cleanupOldBackups(Path backupDir, String worldName, int maxLocalBackups) throws IOException {
         if (maxLocalBackups <= 0) {
-            return; // 0 hoặc âm nghĩa là không giới hạn — không dọn gì cả
+            return;
         }
 
-        // /backups giờ chứa chung nhiều world — chỉ đếm/xoá đúng file của worldName này,
-        // dựa vào tên file kết thúc bằng "_<worldName>.zip" (đúng định dạng đã tạo ở trên).
         String suffix = "_" + worldName + ".zip";
 
         try (Stream<Path> walk = Files.list(backupDir)) {
@@ -143,5 +124,19 @@ public final class ZipUtils {
         } catch (IOException e) {
             return 0L;
         }
+    }
+
+    /**
+     * Format kích cỡ file dạng người đọc được (KB/MB/GB), dùng cho UI thông báo
+     * sau khi backup xong. Không dùng thư viện ngoài — java.io.File.length()
+     * trả về bytes, chỉ cần tự chia bậc.
+     */
+    public static String formatFileSize(long bytes) {
+        if (bytes < 1024) {
+            return bytes + " B";
+        }
+        int exp = (int) (Math.log(bytes) / Math.log(1024));
+        String unit = "KMGT".charAt(exp - 1) + "B";
+        return String.format("%.1f %s", bytes / Math.pow(1024, exp), unit);
     }
 }
