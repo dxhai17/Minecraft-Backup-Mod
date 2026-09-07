@@ -34,4 +34,29 @@ public final class ToastHelper {
                 )
         );
     }
+
+    /**
+     * Hiện toast báo kết quả upload cloud. Gọi được từ bất kỳ thread nào (kể
+     * cả thread upload nền do CloudUploadManager tạo) vì tự đẩy về render
+     * thread — giống showBackupSuccessToast(). KHÔNG thay thế toast đó: 2
+     * toast độc lập, báo 2 việc khác nhau (backup local xong vs upload cloud
+     * xong), có thể lần lượt hiện cả 2 trong 1 lượt Save & Quit.
+     */
+    public static void showUploadResultToast(String providerDisplayName, boolean success, String shortReason) {
+        String title = success
+                ? "Upload " + providerDisplayName + ". Thành công"
+                : "Upload " + providerDisplayName + ". Thất bại";
+        String description = success ? "" : (shortReason != null ? shortReason : "");
+
+        Minecraft.getInstance().execute(() ->
+                Minecraft.getInstance().gui.toastManager().addToast(
+                        new SystemToast(
+                                SystemToast.SystemToastId.NARRATOR_TOGGLE,
+                                Component.literal(title),
+                                Component.literal(description)
+                        )
+                )
+        );
+    }
+
 }

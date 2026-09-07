@@ -3,7 +3,7 @@ package com.example.upload;
 import com.example.Backup;
 import com.example.config.BackupConfig;
 import com.example.config.ConfigManager;
-
+import com.example.backup.CloudUploadEvents;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
@@ -91,11 +91,28 @@ public final class CloudUploadManager {
     private static void runUpload(CloudUploader uploader, File zipFile, String worldName,
                                   BackupConfig.CloudProvider provider) {
         Backup.LOGGER.info("Bắt đầu upload backup '{}' lên {}...", zipFile.getName(), provider);
-        boolean success = uploader.upload(zipFile, worldName);
-        if (success) {
+        UploadResult result = uploader.upload(zipFile, worldName);
+
+        if (result.isSuccess()) {
             Backup.LOGGER.info("Upload lên {} hoàn tất.", provider);
         } else {
-            Backup.LOGGER.error("Upload lên {} thất bại, xem log phía trên để biết chi tiết.", provider);
+            Backup.LOGGER.error("Upload lên {} thất bại: {}", provider, result.getShortReason());
         }
+
+        // Bắn event riêng cho UI (Toast) — tách khỏi log ở trên: log cần đầy đủ
+        // (đã ghi chi tiết ngay trong từng Uploader), Toast chỉ cần bản RÚT GỌN.
+        // An toàn gọi từ background thread này vì ToastHelper (phía client) tự
+        // đẩy về render thread bên trong nó, giống cơ chế showBackupSuccessToast().
+        CloudUploadEvents.UPLOAD_COMPLETE.invoker()
+                .onUploadComplete(displayName(provider), result.isSuccess(), result.getShortReason());
+    }
+
+    /** Tên hiển thị lên Toast — KHÁC với BackupConfig.CloudProvider.toString() (kỹ thuật). */
+    private static String displayName(BackupConfig.CloudProvider provider) {
+        return switch (provider) {
+            case DROPBOX -> "Dropbox";
+            case BACKBLAZE -> "Backblaze B2";
+            case NONE -> "Cloud"; // Không tới được đây trong luồng thực tế, giữ để switch đủ nhánh.
+        };
     }
 }

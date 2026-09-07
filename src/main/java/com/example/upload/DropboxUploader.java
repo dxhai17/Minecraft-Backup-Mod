@@ -23,6 +23,10 @@ public final class DropboxUploader implements CloudUploader {
     // để fail nhanh + log rõ ràng, không tốn công gửi cả trăm MB rồi mới biết lỗi.
     private static final long MAX_SIMPLE_UPLOAD_BYTES = 150L * 1024 * 1024;
 
+    // Độ dài tối đa của phần "chi tiết" nhồi vào shortReason — Toast chỉ có
+    // 1-2 dòng, không phải chỗ hiện nguyên response body/exception message.
+    private static final int SHORT_REASON_DETAIL_MAX_LEN = 50;
+
     private final String accessToken;
 
     public DropboxUploader(String accessToken) {
@@ -30,7 +34,7 @@ public final class DropboxUploader implements CloudUploader {
     }
 
     @Override
-    public boolean upload(File zipFile, String worldName) {
+    public UploadResult upload(File zipFile, String worldName) {
         try {
             long fileSize = zipFile.length();
             if (fileSize > MAX_SIMPLE_UPLOAD_BYTES) {
@@ -38,7 +42,7 @@ public final class DropboxUploader implements CloudUploader {
                         "File backup '{}' ({} bytes) vượt giới hạn 150MB của Dropbox Simple Upload API. " +
                                 "Bỏ qua upload — cần Upload Session cho file lớn hơn (chưa hỗ trợ).",
                         zipFile.getName(), fileSize);
-                return false;
+                return UploadResult.failure("Vượt 150MB (Simple Upload)");
             }
 
             // Đường dẫn remote: /backups/<worldName>/<tên-file-gốc> — tên file đã
@@ -68,15 +72,28 @@ public final class DropboxUploader implements CloudUploader {
             if (response.statusCode() != 200) {
                 Backup.LOGGER.error("Dropbox upload thất bại (mã {}): {}",
                         response.statusCode(), response.body());
-                return false;
+                return UploadResult.failure("mã " + response.statusCode() + ": "
+                        + truncate(response.body(), SHORT_REASON_DETAIL_MAX_LEN));
             }
 
             Backup.LOGGER.info("Đã upload backup lên Dropbox: {}", remotePath);
-            return true;
+            return UploadResult.success();
 
         } catch (Exception e) {
             Backup.LOGGER.error("Upload Dropbox thất bại: {}", e.getMessage(), e);
-            return false;
+            return UploadResult.failure(shortReasonFromException(e));
         }
+    }
+
+    /** Rút gọn message exception thành 1 câu ngắn, đủ hiểu, đủ ngắn cho Toast. */
+    private static String shortReasonFromException(Exception e) {
+        String msg = e.getMessage();
+        return e.getClass().getSimpleName()
+                + (msg != null ? ": " + truncate(msg, SHORT_REASON_DETAIL_MAX_LEN) : "");
+    }
+
+    private static String truncate(String s, int maxLen) {
+        if (s == null) return "";
+        return s.length() <= maxLen ? s : s.substring(0, maxLen) + "…";
     }
 }

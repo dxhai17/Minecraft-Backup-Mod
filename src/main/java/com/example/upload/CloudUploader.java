@@ -22,8 +22,9 @@ public interface CloudUploader {
      *
      * @param zipFile   file zip local vừa backup xong (đã tồn tại chắc chắn)
      * @param worldName tên world, dùng làm thư mục con trên cloud
-     * @return true nếu upload thành công, false nếu thất bại (đã tự log lỗi
-     *         bên trong implementation, caller không cần log lại)
+     * @return UploadResult.success() nếu ổn, hoặc UploadResult.failure(lýDoNgắn)
+     *         nếu lỗi — log CHI TIẾT vẫn tự ghi bên trong implementation như cũ,
+     *         lýDoNgắn ở đây chỉ để hiển thị Toast, caller không cần log lại.
      */
-    boolean upload(File zipFile, String worldName);
+    UploadResult upload(File zipFile, String worldName);
 }

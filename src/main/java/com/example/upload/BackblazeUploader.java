@@ -39,39 +39,19 @@ public final class BackblazeUploader implements CloudUploader {
     }
 
     @Override
-    public boolean upload(File zipFile, String worldName) {
-        // Đường dẫn remote: backups/<worldName>/<tên-file-gốc> — tên file đã
-        // có timestamp từ ZipUtils nên mỗi lần backup là 1 object key mới,
-        // KHÔNG đè object cũ trên bucket.
+    public UploadResult upload(File zipFile, String worldName) {
         String objectKey = "backups/" + worldName + "/" + zipFile.getName();
 
-        // Endpoint người dùng nhập trong Cloth Config có thể có hoặc không có
-        // "https://" phía trước (UI chỉ là 1 text field tự do) — chuẩn hoá lại
-        // trước khi build URI, tránh IllegalArgumentException khó hiểu.
         String normalizedEndpoint = endpoint.startsWith("http://") || endpoint.startsWith("https://")
                 ? endpoint
                 : "https://" + endpoint;
 
-        // S3Client implement Closeable — try-with-resources đảm bảo giải
-        // phóng connection pool của url-connection-client ngay sau mỗi lần
-        // upload, vì đây là tác vụ chạy 1 lần rồi thôi (không giữ client sống
-        // xuyên suốt lifecycle của mod).
         try (S3Client s3 = S3Client.builder()
                 .endpointOverride(URI.create(normalizedEndpoint))
-                // Backblaze S3-compatible API không phụ thuộc region thật như
-                // AWS, nhưng SDK bắt buộc phải set 1 giá trị — dùng region rút
-                // ra từ chính endpoint (vd "us-east-005") để đúng tinh thần,
-                // dù giá trị này gần như không được B2 dùng tới khi đã có
-                // endpointOverride.
                 .region(Region.of(extractRegionOrDefault(endpoint)))
                 .credentialsProvider(StaticCredentialsProvider.create(
                         AwsBasicCredentials.create(keyId, applicationKey)))
                 .httpClientBuilder(UrlConnectionHttpClient.builder())
-                // Bắt buộc: S3 API chuẩn tính checksum theo kiểu chunked-encoding
-                // mà nhiều S3-compatible server (bao gồm Backblaze) không hỗ trợ
-                // đầy đủ, gây lỗi "Access Denied" hoặc checksum mismatch khó hiểu.
-                // Tắt path-style off vì Backblaze dùng virtual-hosted style
-                // (bucket.s3.backblazeb2.com), đúng như endpoint mẫu trong config.
                 .forcePathStyle(false)
                 .build()) {
 
@@ -84,11 +64,14 @@ public final class BackblazeUploader implements CloudUploader {
             s3.putObject(request, RequestBody.fromFile(zipFile));
 
             Backup.LOGGER.info("Đã upload backup lên Backblaze B2: {}/{}", bucketName, objectKey);
-            return true;
+            return UploadResult.success();
 
         } catch (Exception e) {
             Backup.LOGGER.error("Upload Backblaze thất bại: {}", e.getMessage(), e);
-            return false;
+            String msg = e.getMessage();
+            String shortReason = e.getClass().getSimpleName()
+                    + (msg != null ? ": " + (msg.length() <= 50 ? msg : msg.substring(0, 50) + "…") : "");
+            return UploadResult.failure(shortReason);
         }
     }
 
