@@ -88,7 +88,8 @@ public class BackupModMenuIntegration implements ModMenuApi {
                 switch (config.activeProvider) {
                     case DROPBOX -> DropboxConfigSection.testConnection(config.dropboxToken);
                     case BACKBLAZE -> BackblazeConfigSection.testConnection(
-                            config.backblazeKeyId, config.backblazeApplicationKey);
+                            config.backblazeEndpoint, config.backblazeKeyId,
+                            config.backblazeApplicationKey, config.backblazeBucket);
                     case NONE -> { /* không cần test kết nối */ }
                 }
             });

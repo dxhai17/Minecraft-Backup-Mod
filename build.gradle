@@ -1,5 +1,6 @@
 plugins {
 	id 'net.fabricmc.fabric-loom' version "${loom_version}"
+	id 'com.gradleup.shadow' version "${shadow_version}"
 	id 'maven-publish'
 }
 
@@ -17,6 +18,26 @@ loom {
 			sourceSet sourceSets.client
 		}
 	}
+}
+
+configurations {
+	// Configuration riêng để gom mọi dependency cần được BUNDLE (gộp thẳng)
+	// vào jar cuối cùng của mod. Đặt canBeResolved = true để shadowJar đọc
+	// được nội dung, đồng thời cho compileClasspath/runtimeClasspath kế thừa
+	// để code Java compile được và chạy được lúc dev (chạy `runServer`/`runClient`
+	// qua Loom, khi đó jar chưa qua bước shadowJar).
+	//
+	// QUAN TRỌNG: block này PHẢI đứng TRƯỚC block "dependencies" bên dưới —
+	// Gradle evaluate script tuần tự từ trên xuống, và method "shadowBundle(...)"
+	// dùng trong "dependencies" chỉ được tự động sinh ra SAU KHI configuration
+	// cùng tên "shadowBundle" đã được khai báo. Đảo ngược thứ tự 2 block này
+	// sẽ gây lỗi "Could not find method shadowBundle() ... DefaultDependencyHandler".
+	shadowBundle {
+		canBeResolved = true
+		canBeConsumed = false
+	}
+	compileClasspath.extendsFrom(shadowBundle)
+	runtimeClasspath.extendsFrom(shadowBundle)
 }
 
 dependencies {
@@ -38,8 +59,79 @@ dependencies {
 
 	// AWS SDK v2 — dùng module S3 để upload lên Backblaze B2 (tương thích S3 API).
 	// BOM chỉ quản lý version, không tự thêm code — vẫn phải khai báo riêng module "s3".
-	implementation platform("software.amazon.awssdk:bom:${project.aws_sdk_version}")
-	implementation "software.amazon.awssdk:s3"
+	//
+	// QUAN TRỌNG: khai báo qua configuration tự tạo "shadowBundle" (KHÔNG phải
+	// configuration "shadow" có sẵn của Shadow plugin — configuration đó có ý
+	// nghĩa NGƯỢC LẠI, dùng để loại trừ khỏi fat jar, không phải để gộp vào).
+	// "shadowBundle" đã được khai báo ở block "configurations" phía TRÊN.
+	//
+	// url-connection-client: HTTP client tối giản, đồng bộ, KHÔNG kéo theo
+	// Netty (khác với client mặc định netty-nio-client). Ta chỉ cần 1 request
+	// đồng bộ để upload file zip, không cần async phức tạp của Netty — dùng
+	// url-connection-client giảm đáng kể số lượng class phải shade/relocate
+	// và tránh đụng độ Netty với các mod khác có thể cũng bundle Netty riêng.
+	shadowBundle platform("software.amazon.awssdk:bom:${project.aws_sdk_version}")
+	shadowBundle("software.amazon.awssdk:s3") {
+		exclude group: "software.amazon.awssdk", module: "netty-nio-client"
+	}
+	shadowBundle "software.amazon.awssdk:url-connection-client"
+}
+
+shadowJar {
+	// Chỉ đóng gói những gì khai báo qua configuration "shadowBundle" — KHÔNG
+	// gộp toàn bộ classpath (mặc định của Shadow là gộp hết), để không vô
+	// tình nhét luôn cả Minecraft/Fabric API vào trong jar mod (vốn không cần
+	// và không được phép, vì Fabric Loader tự cấp Minecraft lúc runtime).
+	configurations = [project.configurations.shadowBundle]
+
+	// Relocate toàn bộ package của AWS SDK và các thư viện nó kéo theo sang
+	// dưới 1 namespace riêng của mod. Lý do bắt buộc: nếu người chơi cài thêm
+	// mod khác cũng dùng AWS SDK nhưng KHÁC version, 2 jar sẽ có cùng tên
+	// class (vd software.amazon.awssdk.services.s3.S3Client) nhưng khác nội
+	// dung -> classloader chỉ nạp được 1 bản, dễ crash hoặc lỗi khó hiểu ở
+	// mod còn lại. Đổi package prefix loại bỏ hoàn toàn khả năng đụng độ này.
+	relocate 'software.amazon.awssdk', 'com.example.shadow.awssdk'
+	relocate 'org.reactivestreams', 'com.example.shadow.reactivestreams'
+	relocate 'org.slf4j', 'com.example.shadow.slf4j_awsinternal'
+	// KHÔNG relocate "com.example.shadow.slf4j_awsinternal" thành đúng
+	// "org.slf4j" gốc — vì Minecraft/Fabric đã có sẵn slf4j riêng (Backup.LOGGER
+	// đang dùng org.slf4j.Logger từ đó). Nếu AWS SDK không tự mang theo
+	// implementation slf4j riêng thì dòng relocate slf4j này có thể bỏ; giữ
+	// lại ở đây như phòng hờ, cần kiểm tra thực tế bằng cách chạy `jar tf` lên
+	// fat jar để xem có class org/slf4j nào bị AWS SDK mang theo dư thừa không.
+
+	archiveClassifier.set('dev') // Bản trung gian; task "jar" bên dưới sẽ nhúng nội dung này rồi được Loom tự remap
+}
+
+// QUAN TRỌNG (xác nhận qua `./gradlew tasks --all` chạy thật trên project này):
+// Loom 1.17.20 KHÔNG tạo task "remapJar" tách biệt như tài liệu cũ (Loom 0.x/1.0)
+// mô tả — danh sách task thực tế của project chỉ có "jar" và "shadowJar", không
+// có "remapJar". Lý do: loom{} mặc định bật `remapArchives = true`, nghĩa là
+// CHÍNH task "jar" được Loom tự động remap tại chỗ khi nó chạy, không cần task
+// remapJar riêng nữa. Do đó chỉ cần nối input của "jar" bằng output của
+// "shadowJar" — bước remap nội bộ của Loom vẫn tự áp dụng lên kết quả này vì
+// nó áp dụng lên bất kỳ nội dung nào task "jar" tạo ra, bất kể nguồn gốc.
+//
+// Không dùng afterEvaluate + tasks.named('remapJar') như thử nghiệm trước —
+// đã xác nhận bằng thực nghiệm là task đó không tồn tại trong version Loom này.
+jar {
+	dependsOn tasks.named('shadowJar')
+	// Cần thiết: cả "jar" (qua sourceSets.main.output) và "shadowJar" (tự copy
+	// lại toàn bộ resource của main) đều chứa các file resource giống hệt nhau
+	// (vd assets/backup/icon.png) — 2 nguồn trộn vào cùng 1 jar khiến Gradle
+	// không biết ưu tiên bản nào, báo lỗi "duplicate but no duplicate handling
+	// strategy". Dùng EXCLUDE vì nội dung 2 bên giống hệt nhau (cùng nguồn
+	// gốc, không phải xung đột thật), giữ bản gặp trước là đủ.
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from(zipTree(tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
+			.flatMap { it.archiveFile }))
+
+	def projectName = project.name
+	inputs.property "projectName", projectName
+
+	from("LICENSE") {
+		rename { "${it}_$projectName"}
+	}
 }
 
 processResources {
@@ -63,15 +155,6 @@ java {
 
 	sourceCompatibility = JavaVersion.VERSION_25
 	targetCompatibility = JavaVersion.VERSION_25
-}
-
-jar {
-	def projectName = project.name
-	inputs.property "projectName", projectName
-
-	from("LICENSE") {
-		rename { "${it}_$projectName"}
-	}
 }
 
 // configure the maven publication

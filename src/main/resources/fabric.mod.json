@@ -25,17 +25,12 @@
 			"com.example.config.BackupModMenuIntegration"
 		]
 	},
-	"mixins": [
-		"backup.mixins.json",
-		{
-			"config": "backup.client.mixins.json",
-			"environment": "client"
-		}
-	],
 	"depends": {
 		"fabricloader": ">=0.19.5",
 		"minecraft": "~26.2",
 		"java": ">=25",
-		"fabric-api": "*"
+		"fabric-api": "*",
+		"cloth-config": ">=26.2.155",
+		"modmenu": ">=20.0.1"
 	}
 }

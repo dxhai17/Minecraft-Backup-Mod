@@ -3,6 +3,7 @@ package com.example;
 import com.example.backup.BackupCompleteEvents;
 import com.example.backup.ZipUtils;
 import com.example.config.ConfigManager;
+import com.example.upload.CloudUploadManager;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents;
 import net.fabricmc.fabric.api.gamerule.v1.GameRuleBuilder;
@@ -28,6 +29,12 @@ public class Backup implements ModInitializer {
 		ConfigManager.load();
 		LOGGER.info("Backup Mod initialized with GameRule!");
 
+		// Đăng ký upload cloud ngay tại main (KHÔNG phải client) — vì upload
+		// phải chạy được cả trên dedicated server, khác hẳn ToastHelper (chỉ
+		// đăng ký bên BackupClient.java, src/client/java). Hai listener này
+		// độc lập, không biết gì về nhau, cùng lắng nghe 1 event.
+		BackupCompleteEvents.BACKUP_COMPLETE.register(CloudUploadManager::handleBackupComplete);
+
 		ServerLifecycleEvents.SERVER_STOPPING.register(server -> {
 			boolean gameRuleEnabled = server.getGameRules().get(AUTO_BACKUP);
 			boolean configEnabled = ConfigManager.INSTANCE.backupOnQuit;
@@ -43,16 +50,14 @@ public class Backup implements ModInitializer {
 			LOGGER.info("Bắt đầu backup local cho world '{}'...", worldName);
 			File zipFile = ZipUtils.backupWorld(worldName, ConfigManager.INSTANCE.maxLocalBackups);
 
-			// Chỉ phát sự kiện — Backup.java (main) không biết và không cần biết
-			// có ai lắng nghe hay không. BackupClient.java (client) tự quyết định
-			// có hiện Toast hay không; trên dedicated server không ai đăng ký
-			// lắng nghe (vì BackupClient.java không được nạp), nên an toàn tuyệt
-			// đối, không cần tự kiểm tra isDedicatedServer() ở đây nữa.
+			// Phát sự kiện — Backup.java (main) không biết và không cần biết có
+			// ai lắng nghe: CloudUploadManager (main, upload cloud) và/hoặc
+			// BackupClient (client, hiện Toast) tự quyết định làm gì. Trên
+			// dedicated server, BackupClient không được nạp nên chỉ
+			// CloudUploadManager chạy — an toàn tuyệt đối.
 			if (zipFile != null) {
 				BackupCompleteEvents.BACKUP_COMPLETE.invoker().onBackupComplete(worldName, zipFile);
 			}
-			// Bước upload lên Dropbox/Backblaze sẽ nối tiếp ở đây sau, dùng
-			// zipFile làm input cho CloudUploader.
 		});
 	}
 
