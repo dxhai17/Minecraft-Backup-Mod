@@ -9,10 +9,13 @@ import net.minecraft.network.chat.Component;
  * nằm trong src/client/java. Backup.java (chạy trên cả server lẫn client,
  * nằm ở src/main/java) KHÔNG được gọi Minecraft.getInstance() trực tiếp —
  * vì dòng đó sẽ null/crash trên dedicated server (không có client).
- *
  * Backup.java phải tự kiểm tra server.isDedicatedServer() trước khi gọi bất
  * kỳ method nào ở đây, để đảm bảo class này chỉ được nạp khi chắc chắn đang
  * chạy phía có client (singleplayer/integrated server).
+ * Toast dùng Component.translatable(key, args) thay vì Component.literal(...)
+ * — tự tra en_us.json/vi_vn.json theo locale của client, KHÔNG ảnh hưởng
+ * log console (LOGGER vẫn cứng tiếng Việt như cũ, không đi qua lang system
+ * của Minecraft).
  */
 public final class ToastHelper {
 
@@ -28,8 +31,8 @@ public final class ToastHelper {
                 Minecraft.getInstance().gui.toastManager().addToast(
                         new SystemToast(
                                 SystemToast.SystemToastId.NARRATOR_TOGGLE,
-                                Component.literal("Đã sao lưu thế giới: " + worldName),
-                                Component.literal("Kích cỡ: " + formattedSize)
+                                Component.translatable("backup.toast.local_success.title", worldName),
+                                Component.translatable("backup.toast.local_success.description", formattedSize)
                         )
                 )
         );
@@ -43,20 +46,22 @@ public final class ToastHelper {
      * xong), có thể lần lượt hiện cả 2 trong 1 lượt Save & Quit.
      */
     public static void showUploadResultToast(String providerDisplayName, boolean success, String shortReason) {
-        String title = success
-                ? "Upload " + providerDisplayName + ". Thành công"
-                : "Upload " + providerDisplayName + ". Thất bại";
-        String description = success ? "" : (shortReason != null ? shortReason : "");
+        Component title = success
+                ? Component.translatable("backup.toast.upload_success.title", providerDisplayName)
+                : Component.translatable("backup.toast.upload_failure.title", providerDisplayName);
+        Component description = success
+                ? Component.empty()
+                : Component.translatable("backup.toast.upload_failure.description",
+                shortReason != null ? shortReason : "");
 
         Minecraft.getInstance().execute(() ->
                 Minecraft.getInstance().gui.toastManager().addToast(
                         new SystemToast(
                                 SystemToast.SystemToastId.NARRATOR_TOGGLE,
-                                Component.literal(title),
-                                Component.literal(description)
+                                title,
+                                description
                         )
                 )
         );
     }
-
 }

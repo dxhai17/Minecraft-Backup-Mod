@@ -13,7 +13,7 @@ public final class DropboxConfigSection {
 
     public static void addEntries(ConfigCategory category, ConfigEntryBuilder eb, BackupConfig config) {
         category.addEntry(eb.startStrField(
-                        Component.literal("Access Token"),
+                        Component.translatable("backup.config.dropbox.access_token"),
                         config.dropboxToken)
                 .setDefaultValue("")
                 .setSaveConsumer(newValue -> config.dropboxToken = newValue)
@@ -31,6 +31,6 @@ public final class DropboxConfigSection {
                 .POST(HttpRequest.BodyPublishers.noBody())
                 .build();
 
-        CloudConnectionTester.test("Test Dropbox", request);
+        CloudConnectionTester.test("Dropbox", request);
     }
 }

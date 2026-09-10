@@ -21,34 +21,41 @@ public final class CloudConnectionTester {
      * Gọi 1 request GET/POST đã build sẵn, chạy trên thread riêng để không đứng
      * hình UI trong lúc chờ mạng, rồi hiện Toast báo thành công/thất bại.
      *
-     * @param toastTitle tên nền tảng hiển thị trên Toast (vd: "Test Dropbox")
-     * @param request    request đã build sẵn (khác nhau giữa các provider)
+     * @param providerName tên nền tảng thuần (vd: "Dropbox", "Backblaze") — dùng
+     *                     để build cả title translatable ("Test %s") và message
+     *                     lỗi mạng, KHÔNG truyền text đã dịch sẵn ở đây.
+     * @param request      request đã build sẵn (khác nhau giữa các provider)
      */
-    public static void test(String toastTitle, HttpRequest request) {
+    public static void test(String providerName, HttpRequest request) {
         new Thread(() -> {
+            Component title = Component.translatable("backup.config.test_connection.title", providerName);
+
             try {
                 HttpResponse<String> response = HttpClient.newHttpClient()
                         .send(request, HttpResponse.BodyHandlers.ofString());
 
                 boolean success = response.statusCode() == 200;
-                String message = success
-                        ? "Thành công: Key hợp lệ!"
-                        : "Thất bại: Sai Key (mã " + response.statusCode() + ")";
+                Component message = success
+                        ? Component.translatable("backup.config.test_connection.success")
+                        : Component.translatable("backup.config.test_connection.failure", response.statusCode());
 
-                showToast(toastTitle, message);
+                showToast(title, message);
             } catch (Exception e) {
-                showToast("Lỗi mạng", "Không thể kết nối tới " + toastTitle + " để kiểm tra.");
+                showToast(
+                        Component.translatable("backup.config.test_connection.network_error.title"),
+                        Component.translatable("backup.config.test_connection.network_error.description", providerName)
+                );
             }
         }).start();
     }
 
-    private static void showToast(String title, String message) {
+    private static void showToast(Component title, Component message) {
         Minecraft.getInstance().execute(() ->
                 Minecraft.getInstance().gui.toastManager().addToast(
                         new SystemToast(
                                 SystemToast.SystemToastId.NARRATOR_TOGGLE,
-                                Component.literal(title),
-                                Component.literal(message)
+                                title,
+                                message
                         )
                 )
         );

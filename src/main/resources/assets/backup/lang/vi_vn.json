@@ -1,5 +1,43 @@
 {
   "backup.gamerule.category": "Backup World",
   "gamerule.backup.auto_backup": "Tự động sao lưu",
-  "modmenu.nameTranslation.backup": "Backup World"
+  "modmenu.nameTranslation.backup": "Backup World",
+
+  "backup.toast.local_success.title": "Đã sao lưu thế giới: %s",
+  "backup.toast.local_success.description": "Kích cỡ: %s",
+
+  "backup.toast.upload_success.title": "Upload %s. Thành công",
+  "backup.toast.upload_failure.title": "Upload %s. Thất bại",
+  "backup.toast.upload_failure.description": "%s",
+
+  "backup.config.title": "Cài đặt Backup World",
+
+  "backup.config.category.general": "Chung",
+  "backup.config.category.dropbox": "Dropbox",
+  "backup.config.category.backblaze": "Backblaze B2",
+
+  "backup.config.general.backup_on_quit": "Tự động backup khi Save & Quit",
+  "backup.config.general.max_local_backups": "Số bản backup local giữ lại tối đa",
+  "backup.config.general.active_provider": "Nhà cung cấp Cloud",
+
+  "backup.config.provider.none": "Chỉ lưu local",
+  "backup.config.provider.dropbox": "Dropbox",
+  "backup.config.provider.backblaze": "Backblaze B2",
+
+  "backup.config.dropbox.access_token": "Access Token",
+
+  "backup.config.backblaze.endpoint": "Endpoint",
+  "backup.config.backblaze.key_id": "Access Key (keyID)",
+  "backup.config.backblaze.application_key": "Secret Key (applicationKey)",
+  "backup.config.backblaze.bucket_name": "Tên bucket",
+
+  "backup.config.toast.save_failed.title": "Không thể lưu",
+  "backup.config.toast.save_failed.missing_credentials": "Nền tảng %s đang thiếu thông tin xác thực bắt buộc.",
+  "backup.config.toast.save_failed.invalid_bucket": "Tên bucket không hợp lệ.",
+
+  "backup.config.test_connection.title": "Test %s",
+  "backup.config.test_connection.success": "Thành công: Key hợp lệ!",
+  "backup.config.test_connection.failure": "Thất bại: Sai Key (mã %s)",
+  "backup.config.test_connection.network_error.title": "Lỗi mạng",
+  "backup.config.test_connection.network_error.description": "Không thể kết nối tới %s để kiểm tra."
 }

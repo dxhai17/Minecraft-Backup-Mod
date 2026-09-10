@@ -3,5 +3,43 @@
 
   "gamerule.backup.auto_backup": "Auto Backup",
 
-  "modmenu.nameTranslation.backup": "Backup World"
+  "modmenu.nameTranslation.backup": "Backup World",
+
+  "backup.toast.local_success.title": "World backed up: %s",
+  "backup.toast.local_success.description": "Size: %s",
+
+  "backup.toast.upload_success.title": "Upload %s. Success",
+  "backup.toast.upload_failure.title": "Upload %s. Failed",
+  "backup.toast.upload_failure.description": "%s",
+
+  "backup.config.title": "Backup World Settings",
+
+  "backup.config.category.general": "General",
+  "backup.config.category.dropbox": "Dropbox",
+  "backup.config.category.backblaze": "Backblaze B2",
+
+  "backup.config.general.backup_on_quit": "Auto backup on Save & Quit",
+  "backup.config.general.max_local_backups": "Max local backups to keep",
+  "backup.config.general.active_provider": "Cloud provider",
+
+  "backup.config.provider.none": "Local only",
+  "backup.config.provider.dropbox": "Dropbox",
+  "backup.config.provider.backblaze": "Backblaze B2",
+
+  "backup.config.dropbox.access_token": "Access Token",
+
+  "backup.config.backblaze.endpoint": "Endpoint",
+  "backup.config.backblaze.key_id": "Access Key (keyID)",
+  "backup.config.backblaze.application_key": "Secret Key (applicationKey)",
+  "backup.config.backblaze.bucket_name": "Bucket name",
+
+  "backup.config.toast.save_failed.title": "Unable to save",
+  "backup.config.toast.save_failed.missing_credentials": "Provider %s is missing required credentials.",
+  "backup.config.toast.save_failed.invalid_bucket": "Invalid bucket name.",
+
+  "backup.config.test_connection.title": "Test %s",
+  "backup.config.test_connection.success": "Success: Valid key!",
+  "backup.config.test_connection.failure": "Failed: Invalid key (code %s)",
+  "backup.config.test_connection.network_error.title": "Network error",
+  "backup.config.test_connection.network_error.description": "Could not connect to %s to test the key."
 }
