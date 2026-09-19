@@ -24,7 +24,13 @@
   "backup.config.provider.dropbox": "Dropbox",
   "backup.config.provider.backblaze": "Backblaze B2",
 
+  "backup.config.dropbox.auth_mode": "Cách xác thực",
+  "backup.config.dropbox.auth_mode.access_token": "Access Token",
+  "backup.config.dropbox.auth_mode.refresh_token": "Refresh Token",
   "backup.config.dropbox.access_token": "Access Token",
+  "backup.config.dropbox.app_key": "App Key",
+  "backup.config.dropbox.app_secret": "App Secret",
+  "backup.config.dropbox.refresh_token": "Refresh Token",
 
   "backup.config.backblaze.endpoint": "Endpoint",
   "backup.config.backblaze.key_id": "Access Key (keyID)",

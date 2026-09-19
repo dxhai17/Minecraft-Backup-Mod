@@ -32,7 +32,15 @@ import java.util.concurrent.TimeUnit;
  */
 public final class CloudUploadManager {
 
-    private static final long UPLOAD_TIMEOUT_SECONDS = 60;
+    // 60s (giá trị cũ) chỉ đủ cho file vài chục MB qua Simple Upload. Với
+    // Upload Session (nhiều request tuần tự cho file lớn, ví dụ world vài GB
+    // sau khi khám phá Nether/End) và mạng nhà thông thường (upload thường
+    // chậm hơn download nhiều), 15 phút là mức thực tế hơn — đủ cho file cỡ
+    // 1-3GB trên mạng upload chậm (~5-10 Mbps) mà không giữ server "coi như
+    // treo" quá lâu nếu mạng thực sự có vấn đề. Vẫn chỉ là ngưỡng để
+    // CHỦ ĐỘNG ngừng CHỜ ở server thread — nếu quá hạn, upload vẫn tiếp tục
+    // chạy nền (xem comment lớp CloudUploadManager), không bị hủy giữa chừng.
+    private static final long UPLOAD_TIMEOUT_SECONDS = 900;
 
     private CloudUploadManager() {}
 
@@ -56,7 +64,11 @@ public final class CloudUploadManager {
         }
 
         CloudUploader uploader = switch (config.activeProvider) {
-            case DROPBOX -> new DropboxUploader(config.dropboxToken);
+            case DROPBOX -> switch (config.dropboxAuthMode) {
+                case ACCESS_TOKEN -> new DropboxUploader(config.dropboxToken);
+                case REFRESH_TOKEN -> new DropboxUploader(
+                        config.dropboxAppKey, config.dropboxAppSecret, config.dropboxRefreshToken);
+            };
             case BACKBLAZE -> new BackblazeUploader(
                     config.backblazeEndpoint, config.backblazeKeyId, config.backblazeApplicationKey, config.backblazeBucket);
             case NONE -> null; // Không tới được đây vì đã return ở trên, giữ để switch đủ nhánh.

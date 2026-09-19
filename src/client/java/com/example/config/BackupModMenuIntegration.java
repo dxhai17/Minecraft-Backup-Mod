@@ -80,7 +80,7 @@ public class BackupModMenuIntegration implements ModMenuApi {
                 ConfigManager.save();
 
                 switch (config.activeProvider) {
-                    case DROPBOX -> DropboxConfigSection.testConnection(config.dropboxToken);
+                    case DROPBOX -> DropboxConfigSection.testConnection(config);
                     case BACKBLAZE -> BackblazeConfigSection.testConnection(
                             config.backblazeEndpoint, config.backblazeKeyId,
                             config.backblazeApplicationKey, config.backblazeBucket);
